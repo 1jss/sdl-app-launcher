@@ -51,6 +51,11 @@ int main(int argc, char *argv[]) {
   SDL_Texture *label_texture_shaded =
       SDL_CreateTextureFromSurface(renderer, label_surface_shaded);
 
+  SDL_Surface *icon_application_surface =
+      SDL_LoadBMP("icons/application-x-executable.bmp");
+  SDL_Texture *icon_application_texture =
+      SDL_CreateTextureFromSurface(renderer, icon_application_surface);
+
   // Begin main loop
   SDL_bool done = SDL_FALSE;
   while (!done) {
@@ -101,6 +106,10 @@ int main(int argc, char *argv[]) {
                          text_w + 32, text_h + 16};
     SDL_RenderDrawRect(renderer, &testrect);
 
+    // Draw icon to screen
+    SDL_Rect icon_rect = {mouse_x, mouse_y - 16, 16, 16};
+    SDL_RenderCopy(renderer, icon_application_texture, NULL, &icon_rect);
+
     // Draw back buffer to screen
     SDL_RenderPresent(renderer);
 
@@ -110,6 +119,10 @@ int main(int argc, char *argv[]) {
   if (label_surface) {
     SDL_FreeSurface(label_surface);
   }
+  if (label_texture_shaded) {
+    SDL_FreeSurface(label_surface_shaded);
+  }
+
   if (label_texture) {
     SDL_DestroyTexture(label_texture);
   }
