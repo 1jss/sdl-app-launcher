@@ -119,12 +119,22 @@ int main(int argc, char *argv[]) {
   if (label_surface) {
     SDL_FreeSurface(label_surface);
   }
-  if (label_texture_shaded) {
-    SDL_FreeSurface(label_surface_shaded);
-  }
-
   if (label_texture) {
     SDL_DestroyTexture(label_texture);
+  }
+
+  if (label_surface_shaded) {
+    SDL_FreeSurface(label_surface_shaded);
+  }
+  if (label_texture_shaded) {
+    SDL_DestroyTexture(label_texture_shaded);
+  }
+
+  if (icon_application_surface) {
+    SDL_FreeSurface(icon_application_surface);
+  }
+  if (icon_application_texture) {
+    SDL_DestroyTexture(icon_application_texture);
   }
 
   if (renderer) {
