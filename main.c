@@ -28,23 +28,29 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  if (TTF_Init()){
+  if (TTF_Init()) {
     printf("TTF_Init\n");
-        return -1;
+    return -1;
   }
 
   int mouse_x = 0;
   int mouse_y = 0;
 
-// Create a text label
-    SDL_Color Black = {0, 0, 0, SDL_ALPHA_OPAQUE};
-    char label_text[] = "Just a very long text";
-    TTF_Font *Inter = TTF_OpenFont("Inter-Regular.ttf", 16);
-    SDL_Surface *label_surface =
-        TTF_RenderText_Solid(Inter, label_text, Black);
-    SDL_Texture *label_texture =
-        SDL_CreateTextureFromSurface(renderer, label_surface);
-        
+  // Create a text label
+  const SDL_Color BLACK = {0, 0, 0, SDL_ALPHA_OPAQUE};
+  const SDL_Color WHITE = {255, 255, 255, SDL_ALPHA_OPAQUE};
+
+  char label_text[] = "Just a very long text";
+  TTF_Font *Inter = TTF_OpenFont("Inter-Regular.ttf", 16);
+  SDL_Surface *label_surface = TTF_RenderUTF8_Blended(Inter, label_text, BLACK);
+  SDL_Texture *label_texture =
+      SDL_CreateTextureFromSurface(renderer, label_surface);
+
+  SDL_Surface *label_surface_shaded =
+      TTF_RenderUTF8_Shaded(Inter, label_text, BLACK, WHITE);
+  SDL_Texture *label_texture_shaded =
+      SDL_CreateTextureFromSurface(renderer, label_surface_shaded);
+
   // Begin main loop
   SDL_bool done = SDL_FALSE;
   while (!done) {
@@ -78,13 +84,22 @@ int main(int argc, char *argv[]) {
     }
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-    SDL_Rect testrect = {mouse_x - 16, mouse_y - 16, 32, 32};
-    SDL_RenderDrawRect(renderer, &testrect);
 
+    // Draw text to screen
     int text_w, text_h;
     TTF_SizeText(Inter, label_text, &text_w, &text_h);
-    SDL_Rect text_rect = {mouse_x - 16, mouse_y - 16, text_w, text_h};
+    SDL_Rect text_rect = {mouse_x - text_w - 16, mouse_y - text_h - 8, text_w,
+                          text_h};
     SDL_RenderCopy(renderer, label_texture, NULL, &text_rect);
+
+    SDL_Rect text_rect_shaded = {mouse_x - text_w - 16, mouse_y, text_w,
+                                 text_h};
+    SDL_RenderCopy(renderer, label_texture_shaded, NULL, &text_rect_shaded);
+
+    // Draw rect to screen
+    SDL_Rect testrect = {mouse_x - text_w - 32, mouse_y - text_h - 16,
+                         text_w + 32, text_h + 16};
+    SDL_RenderDrawRect(renderer, &testrect);
 
     // Draw back buffer to screen
     SDL_RenderPresent(renderer);
@@ -92,12 +107,12 @@ int main(int argc, char *argv[]) {
     // Throttle frame rate to 60fps
     // SDL_Delay(1000 / 60);
   }
-    if (label_surface) {
-      SDL_FreeSurface(label_surface);
-    }
-    if (label_texture) {
-      SDL_DestroyTexture(label_texture);
-    }
+  if (label_surface) {
+    SDL_FreeSurface(label_surface);
+  }
+  if (label_texture) {
+    SDL_DestroyTexture(label_texture);
+  }
 
   if (renderer) {
     SDL_DestroyRenderer(renderer);
