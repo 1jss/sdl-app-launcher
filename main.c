@@ -1,9 +1,73 @@
 #include "config.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdbool.h>
+//#include <regex.h>
+//#include <unistd.h>
 
 int main(int argc, char *argv[]) {
+
+  /*
+  Plan:
+  - Create data structure for .desktop files
+  - Compile regex for name, icon, exe, termanal and visability
+  - List all files in applications folder
+  - Loop through all files
+  - Put regexed content in data structure
+  - Draw content of data structure to screen
+  - Create rectangles of mouse targets
+  - Check for overlap on click
+  - Launch new process with app exe command
+
+
+  // Launch new process
+  if (fork() == 0) {
+    system("my_app");
+    return 1;
+  }
+  return 0;
+  */
+
+  /*
+    regex_t regex;
+    int reti;
+    char msgbuf[100];
+
+    // Compile regular expression
+    reti = regcomp(&regex, "^a[[:alnum:]]", 0);
+
+    regcomp(&regex_name, "Name=(.*),0);
+    regcomp(&regex_icon,"Icon=([^[:space:]]*).*",0);
+    regcomp(&regex_exec, "Exec=(.*)",0);
+    regcomp(&regex_terminal, "Terminal=true",0);
+    regcomp(&regex_nodisplay,NoDisplay=([^[:space:]]*).*,0);
+
+    if (reti) {
+      fprintf(stderr, "Could not compile regex\n");
+      exit(1);
+    }
+
+    // Execute regular expression
+    reti = regexec(&regex, "abc", 0, NULL, 0);
+    if (!reti) {
+      puts("Match");
+    }
+    else if (reti == REG_NOMATCH) {
+      puts("No match");
+    }
+    else {
+      regerror(reti, &regex, msgbuf, sizeof(msgbuf));
+      fprintf(stderr, "Regex match failed: %s\n", msgbuf);
+      exit(1);
+    }
+
+  // Free memory allocated to the pattern buffer by regcomp()
+     regfree(&regex);
+
+
+  */
+
   // Initialize SDL
   if (SDL_Init(SDL_INIT_VIDEO)) {
     printf("SDL_Init: %s\n", SDL_GetError());
@@ -51,10 +115,10 @@ int main(int argc, char *argv[]) {
   SDL_Texture *label_texture_shaded =
       SDL_CreateTextureFromSurface(renderer, label_surface_shaded);
 
-  SDL_Surface *icon_application_surface =
-      SDL_LoadBMP("icons/application-x-executable.bmp");
   SDL_Texture *icon_application_texture =
-      SDL_CreateTextureFromSurface(renderer, icon_application_surface);
+      IMG_LoadTexture(renderer, "icons/application-x-executable.bmp");
+  SDL_Texture *svg_icon_texture =
+      IMG_LoadTexture(renderer, "./SVG/display.svg");
 
   // Begin main loop
   SDL_bool done = SDL_FALSE;
@@ -63,12 +127,12 @@ int main(int argc, char *argv[]) {
     if (SDL_WaitEvent(&event)) {
       switch (event.type) {
       case SDL_KEYDOWN:
-        printf("Key press\n");
+        // printf("Key press\n");
         break;
       case SDL_MOUSEMOTION:
         mouse_x = event.motion.x;
         mouse_y = event.motion.y;
-        printf("Mouse motion %d, %d\n", mouse_x, mouse_y);
+        // printf("Mouse motion %d, %d\n", mouse_x, mouse_y);
         // Flush event queue to only use one event
         // Otherwise renderer laggs behind while emptying event queue
         SDL_FlushEvent(SDL_MOUSEMOTION);
@@ -89,6 +153,10 @@ int main(int argc, char *argv[]) {
     }
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+
+    // Draw SVG to screen
+    SDL_Rect svg_icon_rect = {10, 10, 128, 128};
+    SDL_RenderCopy(renderer, svg_icon_texture, NULL, &svg_icon_rect);
 
     // Draw text to screen
     int text_w, text_h;
@@ -130,11 +198,12 @@ int main(int argc, char *argv[]) {
     SDL_DestroyTexture(label_texture_shaded);
   }
 
-  if (icon_application_surface) {
-    SDL_FreeSurface(icon_application_surface);
-  }
   if (icon_application_texture) {
     SDL_DestroyTexture(icon_application_texture);
+  }
+
+  if (svg_icon_texture) {
+    SDL_DestroyTexture(svg_icon_texture);
   }
 
   if (renderer) {
@@ -144,6 +213,9 @@ int main(int argc, char *argv[]) {
     SDL_DestroyWindow(window);
   }
 
+  TTF_CloseFont(Inter);
+  TTF_Quit();
+  IMG_Quit();
   SDL_Quit();
 
   return 0;
