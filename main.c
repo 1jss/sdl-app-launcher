@@ -2,24 +2,128 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <dirent.h>
+#include <gtk/gtk.h>
 #include <stdbool.h>
-//#include <regex.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 //#include <unistd.h>
 
+typedef struct DesktopFile {
+  char name[128];
+  char icon[128];
+  char exec[128];
+  bool terminal;
+  bool no_display;
+} DesktopFile;
+
 int main(int argc, char *argv[]) {
+  gtk_init(&argc, &argv);
+
+  DesktopFile desktop_files[128];
+  for (int i = 0; i < 128; i++) {
+    strcpy(desktop_files[i].name, "");
+    strcpy(desktop_files[i].icon, "");
+    strcpy(desktop_files[i].exec, "");
+    desktop_files[i].terminal = false;
+    desktop_files[i].no_display = false;
+  };
+
+  const char applications_url[] = "/usr/share/applications/";
+  DIR *directory;
+  struct dirent *dir_entry;
+  FILE *desktop_file;
+  char buffer[BUFSIZ];
+  GtkIconTheme *icon_theme = gtk_icon_theme_get_default();
+
+  if (NULL == (directory = opendir(applications_url))) {
+    printf("Failed to open directory.\n");
+    return 1;
+  }
+  int i = 0;
+  while ((dir_entry = readdir(directory))) {
+    // Skip current and parent directory
+    if (!strcmp(dir_entry->d_name, "."))
+      continue;
+    if (!strcmp(dir_entry->d_name, ".."))
+      continue;
+
+    char file_url[strlen(applications_url) + strlen(dir_entry->d_name)];
+    strcpy(file_url, applications_url);
+    strcat(file_url, dir_entry->d_name);
+
+    desktop_file = fopen(file_url, "r");
+    if (desktop_file == NULL) {
+      printf("Failed to open entry file.\n");
+      return 1;
+    }
+
+    // Parse file line by line
+    while (fgets(buffer, BUFSIZ, desktop_file) != NULL) {
+      if (strlen(desktop_files[i].name) == 0 &&
+          strncmp("Name=", buffer, strlen("Name=")) == 0) {
+        strtok(buffer, "="); // Throw away "Name="
+        char name[128];
+        strcpy(name, strtok(NULL, "="));
+        name[strcspn(name, "\n")] = '\0';
+        strcpy(desktop_files[i].name, name);
+      }
+      if (strlen(desktop_files[i].icon) == 0 &&
+          strncmp("Icon=", buffer, strlen("Icon=")) == 0) {
+        strtok(buffer, "="); // Throw away "Icon="
+        char icon_name[128];
+        strcpy(icon_name, strtok(NULL, "="));
+        icon_name[strcspn(icon_name, "\n")] = '\0';
+
+        if (icon_name[0] == '/') {
+          strcpy(desktop_files[i].icon, icon_name);
+        } else {
+
+          GtkIconInfo *icon_info =
+              gtk_icon_theme_lookup_icon(icon_theme, icon_name, 32, 0);
+
+          if (icon_info != NULL) {
+            const gchar *icon_filename = gtk_icon_info_get_filename(icon_info);
+
+            if (icon_filename != NULL) {
+              printf("Found icon entry!\n");
+              printf("%s\n", icon_filename);
+              strcpy(desktop_files[i].icon, icon_filename);
+            }
+            g_object_unref(icon_info);
+          }
+        }
+      }
+      if (strlen(desktop_files[i].exec) == 0 &&
+          strncmp("Exec=", buffer, strlen("Exec=")) == 0) {
+        strtok(buffer, "="); // Throw away "Exec="
+        char exec[128];
+        strcpy(exec, strtok(NULL, "="));
+        exec[strcspn(exec, "\n")] = '\0';
+        strcpy(desktop_files[i].exec, exec);
+      }
+      if (strncmp("Terminal=true", buffer, strlen("Terminal=true")) == 0) {
+        desktop_files[i].terminal = true;
+      }
+      if (strncmp("NoDisplay=true", buffer, strlen("NoDisplay=true")) == 0) {
+        desktop_files[i].no_display = true;
+      }
+    }
+    fclose(desktop_file);
+    i++;
+  }
+  for (int i = 0; i < 128; i++) {
+    if (strlen(desktop_files[i].name) != 0) {
+      printf("Name: %s\n", desktop_files[i].name);
+      printf("Icon: %s\n", desktop_files[i].icon);
+      printf("Exec: %s\n", desktop_files[i].exec);
+      printf("Terminal: %s\n", desktop_files[i].terminal ? "true" : "false");
+      printf("NoDisplay: %s\n", desktop_files[i].no_display ? "true" : "false");
+    }
+  };
 
   /*
-  Plan:
-  - Create data structure for .desktop files
-  - Compile regex for name, icon, exe, termanal and visability
-  - List all files in applications folder
-  - Loop through all files
-  - Put regexed content in data structure
-  - Draw content of data structure to screen
-  - Create rectangles of mouse targets
-  - Check for overlap on click
-  - Launch new process with app exe command
-
 
   // Launch new process
   if (fork() == 0) {
@@ -27,45 +131,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   return 0;
-  */
-
-  /*
-    regex_t regex;
-    int reti;
-    char msgbuf[100];
-
-    // Compile regular expression
-    reti = regcomp(&regex, "^a[[:alnum:]]", 0);
-
-    regcomp(&regex_name, "Name=(.*),0);
-    regcomp(&regex_icon,"Icon=([^[:space:]]*).*",0);
-    regcomp(&regex_exec, "Exec=(.*)",0);
-    regcomp(&regex_terminal, "Terminal=true",0);
-    regcomp(&regex_nodisplay,NoDisplay=([^[:space:]]*).*,0);
-
-    if (reti) {
-      fprintf(stderr, "Could not compile regex\n");
-      exit(1);
-    }
-
-    // Execute regular expression
-    reti = regexec(&regex, "abc", 0, NULL, 0);
-    if (!reti) {
-      puts("Match");
-    }
-    else if (reti == REG_NOMATCH) {
-      puts("No match");
-    }
-    else {
-      regerror(reti, &regex, msgbuf, sizeof(msgbuf));
-      fprintf(stderr, "Regex match failed: %s\n", msgbuf);
-      exit(1);
-    }
-
-  // Free memory allocated to the pattern buffer by regcomp()
-     regfree(&regex);
-
-
   */
 
   // Initialize SDL

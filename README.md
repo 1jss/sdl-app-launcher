@@ -23,3 +23,15 @@ Image rendering
 2. Render image directly to texture:
 `SDL_Texture *icon_application_texture =  IMG_LoadTexture(renderer,"icons/application-x-executable.bmp");
 `
+
+Plan:
+  - [x] Create data structure for .desktop files
+  - [x] List all files in applications folder
+  - [x] Loop through all files
+  - [x] Parse .desktop files for name, icon, exe, termanal and visability
+  - [x] Fetch icon URIs from system?
+  - [x] Put parsed content in data structure
+  - [ ] Draw content of data structure to screen
+  - [ ] Create rectangles of mouse targets
+  - [ ] Check for overlap on click
+  - [ ] Launch new process with app exe command
