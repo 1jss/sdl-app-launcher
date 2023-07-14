@@ -16,6 +16,9 @@ typedef struct DesktopFile {
   char exec[128];
   bool terminal;
   bool no_display;
+  SDL_Texture *icon_texture;
+  SDL_Rect icon_rect;
+
 } DesktopFile;
 
 int main(int argc, char *argv[]) {
@@ -81,7 +84,7 @@ int main(int argc, char *argv[]) {
         } else {
 
           GtkIconInfo *icon_info =
-              gtk_icon_theme_lookup_icon(icon_theme, icon_name, 32, 0);
+              gtk_icon_theme_lookup_icon(icon_theme, icon_name, 64, 0);
 
           if (icon_info != NULL) {
             const gchar *icon_filename = gtk_icon_info_get_filename(icon_info);
@@ -113,15 +116,6 @@ int main(int argc, char *argv[]) {
     fclose(desktop_file);
     i++;
   }
-  for (int i = 0; i < 128; i++) {
-    if (strlen(desktop_files[i].name) != 0) {
-      printf("Name: %s\n", desktop_files[i].name);
-      printf("Icon: %s\n", desktop_files[i].icon);
-      printf("Exec: %s\n", desktop_files[i].exec);
-      printf("Terminal: %s\n", desktop_files[i].terminal ? "true" : "false");
-      printf("NoDisplay: %s\n", desktop_files[i].no_display ? "true" : "false");
-    }
-  };
 
   /*
 
@@ -148,6 +142,8 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+
   // Create SDL renderer
   SDL_Renderer *renderer =
       SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
@@ -164,27 +160,47 @@ int main(int argc, char *argv[]) {
 
   int mouse_x = 0;
   int mouse_y = 0;
+  int scroll_y = 0;
+
+  const SDL_Color BLACK = {0, 0, 0, SDL_ALPHA_OPAQUE};
+  // const SDL_Color WHITE = {255, 255, 255, SDL_ALPHA_OPAQUE};
 
   // Create a text label
-  const SDL_Color BLACK = {0, 0, 0, SDL_ALPHA_OPAQUE};
-  const SDL_Color WHITE = {255, 255, 255, SDL_ALPHA_OPAQUE};
-
   char label_text[] = "Just a very long text";
   TTF_Font *Inter = TTF_OpenFont("Inter-Regular.ttf", 16);
   SDL_Surface *label_surface = TTF_RenderUTF8_Blended(Inter, label_text, BLACK);
   SDL_Texture *label_texture =
       SDL_CreateTextureFromSurface(renderer, label_surface);
 
-  SDL_Surface *label_surface_shaded =
-      TTF_RenderUTF8_Shaded(Inter, label_text, BLACK, WHITE);
-  SDL_Texture *label_texture_shaded =
-      SDL_CreateTextureFromSurface(renderer, label_surface_shaded);
-
-  SDL_Texture *icon_application_texture =
-      IMG_LoadTexture(renderer, "icons/application-x-executable.bmp");
-  SDL_Texture *svg_icon_texture =
-      IMG_LoadTexture(renderer, "./SVG/display.svg");
-
+  // Create textures for icons
+  int col = 0;
+  int row = 0;
+  const int colstart = 96;
+  const int colwidth = 128;
+  const int rowstart = 64;
+  const int rowheight = 128;
+  for (int i = 0; i < 128; i++) {
+    if (strlen(desktop_files[i].name) != 0 &&
+        desktop_files[i].no_display != true &&
+        strlen(desktop_files[i].icon) != 0) {
+      printf("Name: %s\n", desktop_files[i].name);
+      printf("Icon: %s\n", desktop_files[i].icon);
+      printf("Exec: %s\n", desktop_files[i].exec);
+      // printf("Terminal: %s\n", desktop_files[i].terminal ? "true" : "false");
+      // printf("NoDisplay: %s\n", desktop_files[i].no_display ? "true" :
+      // "false");
+      desktop_files[i].icon_texture =
+          IMG_LoadTexture(renderer, desktop_files[i].icon);
+      desktop_files[i].icon_rect = (SDL_Rect){
+          colstart + col * colwidth, rowstart + row * rowheight, 64, 64};
+      if (col == 3) {
+        col = 0;
+        row++;
+      } else {
+        col++;
+      }
+    }
+  };
   // Begin main loop
   SDL_bool done = SDL_FALSE;
   while (!done) {
@@ -202,13 +218,27 @@ int main(int argc, char *argv[]) {
         // Otherwise renderer laggs behind while emptying event queue
         SDL_FlushEvent(SDL_MOUSEMOTION);
         break;
+      case SDL_MOUSEWHEEL:
+        // scroll up
+        if (event.wheel.y > 0) {
+          scroll_y += event.wheel.y;
+          printf("scroll: %d\n", scroll_y);
+        }
+        // scroll down
+        else if (event.wheel.y < 0) {
+          scroll_y += event.wheel.y;
+          printf("scroll: %d\n", scroll_y);
+        }
+        SDL_FlushEvent(SDL_MOUSEWHEEL);
+        break;
+      case SDL_MOUSEBUTTONDOWN:
+        // Handle mouse clicks
+        break;
       case SDL_QUIT:
         done = SDL_TRUE;
         break;
       }
     }
-
-    // Put rendering code here
 
     // Clear back buffer
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
@@ -219,10 +249,6 @@ int main(int argc, char *argv[]) {
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 
-    // Draw SVG to screen
-    SDL_Rect svg_icon_rect = {10, 10, 128, 128};
-    SDL_RenderCopy(renderer, svg_icon_texture, NULL, &svg_icon_rect);
-
     // Draw text to screen
     int text_w, text_h;
     TTF_SizeText(Inter, label_text, &text_w, &text_h);
@@ -230,45 +256,32 @@ int main(int argc, char *argv[]) {
                           text_h};
     SDL_RenderCopy(renderer, label_texture, NULL, &text_rect);
 
-    SDL_Rect text_rect_shaded = {mouse_x - text_w - 16, mouse_y, text_w,
-                                 text_h};
-    SDL_RenderCopy(renderer, label_texture_shaded, NULL, &text_rect_shaded);
-
     // Draw rect to screen
     SDL_Rect testrect = {mouse_x - text_w - 32, mouse_y - text_h - 16,
                          text_w + 32, text_h + 16};
     SDL_RenderDrawRect(renderer, &testrect);
 
-    // Draw icon to screen
-    SDL_Rect icon_rect = {mouse_x, mouse_y - 16, 16, 16};
-    SDL_RenderCopy(renderer, icon_application_texture, NULL, &icon_rect);
+    // Draw icons to screen
+    for (int i = 0; i < 128; i++) {
+      if (strlen(desktop_files[i].name) != 0 &&
+          desktop_files[i].no_display != true &&
+          strlen(desktop_files[i].icon) != 0) {
+        SDL_RenderCopy(renderer, desktop_files[i].icon_texture, NULL,
+                       &desktop_files[i].icon_rect);
+      }
+    };
 
     // Draw back buffer to screen
     SDL_RenderPresent(renderer);
 
     // Throttle frame rate to 60fps
     // SDL_Delay(1000 / 60);
-  }
+  } // End of rendering loop
   if (label_surface) {
     SDL_FreeSurface(label_surface);
   }
   if (label_texture) {
     SDL_DestroyTexture(label_texture);
-  }
-
-  if (label_surface_shaded) {
-    SDL_FreeSurface(label_surface_shaded);
-  }
-  if (label_texture_shaded) {
-    SDL_DestroyTexture(label_texture_shaded);
-  }
-
-  if (icon_application_texture) {
-    SDL_DestroyTexture(icon_application_texture);
-  }
-
-  if (svg_icon_texture) {
-    SDL_DestroyTexture(svg_icon_texture);
   }
 
   if (renderer) {
