@@ -31,7 +31,12 @@ Plan:
   - [x] Parse .desktop files for name, icon, exe, termanal and visability
   - [x] Fetch icon URIs from system?
   - [x] Put parsed content in data structure
-  - [ ] Draw content of data structure to screen
-  - [ ] Create rectangles of mouse targets
-  - [ ] Check for overlap on click
-  - [ ] Launch new process with app exe command
+  - [x] Draw content of data structure to screen
+  - [x] Create rectangles of mouse targets
+  - [x] Check for overlap on click
+  - [x] Launch new process with app exe command
+  - [ ] Scroll app grid
+  - [ ] Variable list length?
+  - [ ] Cut strings with pointer?
+    - https://www.programiz.com/c-programming/c-strings
+
