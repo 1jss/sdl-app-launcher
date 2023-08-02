@@ -67,6 +67,14 @@ void freeLaunchers(Launcher *head) {
 int main(int argc, char *argv[]) {
   gtk_init(&argc, &argv);
 
+  const SDL_Color WHITE = {255, 255, 255, SDL_ALPHA_OPAQUE};
+  const char applications_url[] = "/usr/share/applications/";
+  DIR *directory;
+  struct dirent *dir_entry;
+  FILE *desktop_file;
+  char buffer[BUFSIZ];
+  GtkIconTheme *icon_theme = gtk_icon_theme_get_default();
+  Launcher *launcherList = NULL;
   DesktopFile desktop_files[128];
   for (int i = 0; i < 128; i++) {
     strcpy(desktop_files[i].name, "");
@@ -75,19 +83,53 @@ int main(int argc, char *argv[]) {
     desktop_files[i].terminal = false;
     desktop_files[i].no_display = false;
   };
+  int mouse_x = 0;
+  int mouse_y = 0;
+  int scroll_y = 0;
+  int col = 0;
+  int row = 0;
+  const int colstart = 48;
+  const int colwidth = 96;
+  const int rowstart = 32;
+  const int rowheight = 112;
 
-  const char applications_url[] = "/usr/share/applications/";
-  DIR *directory;
-  struct dirent *dir_entry;
-  FILE *desktop_file;
-  char buffer[BUFSIZ];
-  GtkIconTheme *icon_theme = gtk_icon_theme_get_default();
-  struct Launcher *launcherList = NULL;
+  // Initialize SDL
+  if (SDL_Init(SDL_INIT_VIDEO)) {
+    printf("SDL_Init: %s\n", SDL_GetError());
+    return -1;
+  }
+
+  // Create SDL window
+  SDL_Window *window = SDL_CreateWindow(
+      "Template", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+      (int)SCREEN_WIDTH, (int)SCREEN_HEIGHT, 0);
+  if (!window) {
+    printf("SDL_CreateWindow: %s\n", SDL_GetError());
+    return -1;
+  }
+
+  // Create SDL renderer
+  SDL_Renderer *renderer =
+      SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
+  if (!renderer) {
+    printf("SDL_CreateRenderer: %s\n", SDL_GetError());
+    return -1;
+  }
+  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+
+  // Initialize font
+  if (TTF_Init()) {
+    printf("TTF_Init\n");
+    return -1;
+  }
+  TTF_Font *Inter = TTF_OpenFont("Inter-Regular.ttf", 16);
 
   if (NULL == (directory = opendir(applications_url))) {
     printf("Failed to open directory.\n");
     return 1;
   }
+  
   int i = 0;
   while ((dir_entry = readdir(directory))) {
     // Skip current and parent directory
@@ -167,61 +209,7 @@ int main(int argc, char *argv[]) {
       }
     }
     fclose(desktop_file);
-    i++;
-  }
 
-  // Initialize SDL
-  if (SDL_Init(SDL_INIT_VIDEO)) {
-    printf("SDL_Init: %s\n", SDL_GetError());
-    return -1;
-  }
-
-  // Create SDL window
-  SDL_Window *window = SDL_CreateWindow(
-      "Template", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-      (int)SCREEN_WIDTH, (int)SCREEN_HEIGHT, 0);
-  if (!window) {
-    printf("SDL_CreateWindow: %s\n", SDL_GetError());
-    return -1;
-  }
-
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-
-  // Create SDL renderer
-  SDL_Renderer *renderer =
-      SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
-
-  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-  if (!renderer) {
-    printf("SDL_CreateRenderer: %s\n", SDL_GetError());
-    return -1;
-  }
-
-  if (TTF_Init()) {
-    printf("TTF_Init\n");
-    return -1;
-  }
-
-  int mouse_x = 0;
-  int mouse_y = 0;
-  int scroll_y = 0;
-
-  // const SDL_Color BLACK = {0, 0, 0, SDL_ALPHA_OPAQUE};
-  const SDL_Color WHITE = {255, 255, 255, SDL_ALPHA_OPAQUE};
-
-  // Init font
-  TTF_Font *Inter = TTF_OpenFont("Inter-Regular.ttf", 16);
-
-  // Create textures for icons
-  int col = 0;
-  int row = 0;
-  const int colstart = 48;
-  const int colwidth = 96;
-  const int rowstart = 32;
-  const int rowheight = 112;
-
-  for (int i = 0; i < 128; i++) {
     if (strlen(desktop_files[i].name) != 0 &&
         desktop_files[i].no_display == false &&
         strlen(desktop_files[i].icon) != 0) {
@@ -256,6 +244,7 @@ int main(int argc, char *argv[]) {
         col++;
       }
     }
+    i++;
   };
 
   // Begin main loop
