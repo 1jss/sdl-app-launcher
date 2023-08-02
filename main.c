@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
   const int colwidth = 96;
   const int rowstart = 32;
   const int rowheight = 112;
-  
+
   for (int i = 0; i < 128; i++) {
     if (strlen(desktop_files[i].name) != 0 &&
         desktop_files[i].no_display == false &&
@@ -309,33 +309,6 @@ int main(int argc, char *argv[]) {
           }
           launcherHead = launcherHead->next;
         }
-        /*
-        while (found == false && index < 128) {
-          printf("index: %d\n", index);
-          printf("found: %s\n", found ? "true" : "false");
-          printf("mouse_x: %d\n", mouse_x);
-          if (strlen(desktop_files[index].name) != 0 &&
-              desktop_files[index].no_display == false &&
-              strlen(desktop_files[index].icon) != 0) {
-            printf("rect_x%d\n", desktop_files[index].icon_rect.x);
-            printf("rect_w%d\n", desktop_files[index].icon_rect.w);
-
-            if (mouse_x > desktop_files[index].icon_rect.x &&
-                mouse_x < desktop_files[index].icon_rect.x +
-                              desktop_files[index].icon_rect.w &&
-                mouse_y > desktop_files[index].icon_rect.y &&
-                mouse_y < desktop_files[index].icon_rect.y +
-                              desktop_files[index].icon_rect.h) {
-              found = true;
-              // Launch new process
-              if (fork() == 0) {
-                system(desktop_files[index].exec);
-                return 1;
-              }
-            }
-          }
-          index++;
-        }*/
         break;
       case SDL_QUIT:
         done = SDL_TRUE;
