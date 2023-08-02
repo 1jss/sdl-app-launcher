@@ -19,7 +19,6 @@ typedef struct DesktopFile {
   SDL_Rect icon_rect;
   SDL_Texture *label_texture;
   SDL_Rect label_rect;
-
 } DesktopFile;
 
 int main(int argc, char *argv[]) {
@@ -53,10 +52,12 @@ int main(int argc, char *argv[]) {
     if (!strcmp(dir_entry->d_name, ".."))
       continue;
 
+    // Construct full urls
     char file_url[strlen(applications_url) + strlen(dir_entry->d_name)];
     strcpy(file_url, applications_url);
     strcat(file_url, dir_entry->d_name);
 
+    // Open file
     desktop_file = fopen(file_url, "r");
     if (desktop_file == NULL) {
       printf("Failed to open entry file.\n");
@@ -67,45 +68,52 @@ int main(int argc, char *argv[]) {
     while (fgets(buffer, BUFSIZ, desktop_file) != NULL) {
       if (strlen(desktop_files[i].name) == 0 &&
           strncmp("Name=", buffer, strlen("Name=")) == 0) {
-        strtok(buffer, "="); // Throw away "Name="
-        char name[128];
-        strcpy(name, strtok(NULL, "="));
-        name[strcspn(name, "\n")] = '\0';
-        strcpy(desktop_files[i].name, name);
+        // Find equal sign position
+        char *equal_sign_pos = strchr(buffer, '=');
+        if (equal_sign_pos != NULL) {
+          // Start string after equal sign
+          char *app_name = equal_sign_pos + 1;
+          // Remove newline
+          app_name[strcspn(app_name, "\n")] = '\0';
+          strcpy(desktop_files[i].name, app_name);
+        }
       }
       if (strlen(desktop_files[i].icon) == 0 &&
           strncmp("Icon=", buffer, strlen("Icon=")) == 0) {
-        strtok(buffer, "="); // Throw away "Icon="
-        char icon_name[128];
-        strcpy(icon_name, strtok(NULL, "="));
-        icon_name[strcspn(icon_name, "\n")] = '\0';
+        char *equal_sign_pos = strchr(buffer, '=');
+        if (equal_sign_pos != NULL) {
+          // Start string after equal sign
+          char *icon_name = equal_sign_pos + 1;
+          // Remove newline
+          icon_name[strcspn(icon_name, "\n")] = '\0';
 
-        if (icon_name[0] == '/') {
-          strcpy(desktop_files[i].icon, icon_name);
-        } else {
-
-          GtkIconInfo *icon_info =
-              gtk_icon_theme_lookup_icon(icon_theme, icon_name, 64, 0);
-
-          if (icon_info != NULL) {
-            const gchar *icon_filename = gtk_icon_info_get_filename(icon_info);
-
-            if (icon_filename != NULL) {
-              printf("Found icon entry!\n");
-              printf("%s\n", icon_filename);
-              strcpy(desktop_files[i].icon, icon_filename);
+          if (icon_name[0] == '/') {
+            strcpy(desktop_files[i].icon, icon_name);
+          } else {
+            GtkIconInfo *icon_info =
+                gtk_icon_theme_lookup_icon(icon_theme, icon_name, 64, 0);
+            if (icon_info != NULL) {
+              const gchar *icon_filename =
+                  gtk_icon_info_get_filename(icon_info);
+              if (icon_filename != NULL) {
+                strcpy(desktop_files[i].icon, icon_filename);
+              }
+              g_object_unref(icon_info);
             }
-            g_object_unref(icon_info);
           }
         }
       }
       if (strlen(desktop_files[i].exec) == 0 &&
           strncmp("Exec=", buffer, strlen("Exec=")) == 0) {
-        strtok(buffer, "="); // Throw away "Exec="
-        char exec[128];
-        strcpy(exec, strtok(NULL, "="));
-        exec[strcspn(exec, "\n")] = '\0';
-        strcpy(desktop_files[i].exec, exec);
+        char *equal_sign_pos = strchr(buffer, '=');
+        if (equal_sign_pos != NULL) {
+          char *app_exec = equal_sign_pos + 1;
+          // End string before newline
+          app_exec[strcspn(app_exec, "\n")] = '\0';
+          // End string at first space
+          app_exec[strcspn(app_exec, " ")] = '\0';
+          strcpy(desktop_files[i].exec, app_exec);
+        }
       }
       if (strncmp("Terminal=true", buffer, strlen("Terminal=true")) == 0) {
         desktop_files[i].terminal = true;
