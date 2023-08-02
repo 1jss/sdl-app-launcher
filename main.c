@@ -15,11 +15,54 @@ typedef struct DesktopFile {
   char exec[128];
   bool terminal;
   bool no_display;
+} DesktopFile;
+
+typedef struct Launcher {
+  char exec[128];
   SDL_Texture *icon_texture;
   SDL_Rect icon_rect;
   SDL_Texture *label_texture;
   SDL_Rect label_rect;
-} DesktopFile;
+  struct Launcher *next;
+} Launcher;
+
+Launcher *addLauncher(struct Launcher *head, char exec[128],
+                      SDL_Texture *icon_texture, SDL_Rect icon_rect,
+                      SDL_Texture *label_texture, SDL_Rect label_rect) {
+  Launcher *newLauncher = (Launcher *)malloc(sizeof(Launcher));
+  if (newLauncher == NULL) {
+    printf("Failed to allocate memory.\n");
+    return head;
+  }
+  strcpy(newLauncher->exec, exec);
+  newLauncher->icon_texture = icon_texture;
+  newLauncher->icon_rect = icon_rect;
+  newLauncher->label_texture = label_texture;
+  newLauncher->label_rect = label_rect;
+  newLauncher->next = NULL;
+
+  // Handle first launcher
+  if (head == NULL) {
+    return newLauncher;
+  }
+
+  // Put new launcher last in the linked list
+  Launcher *current = head;
+  while (current->next != NULL) {
+    current = current->next;
+  }
+  current->next = newLauncher;
+  return head;
+}
+
+void freeLaunchers(Launcher *head) {
+  Launcher *current = head;
+  while (current != NULL) {
+    Launcher *next = current->next;
+    free(current);
+    current = next;
+  }
+}
 
 int main(int argc, char *argv[]) {
   gtk_init(&argc, &argv);
@@ -39,6 +82,7 @@ int main(int argc, char *argv[]) {
   FILE *desktop_file;
   char buffer[BUFSIZ];
   GtkIconTheme *icon_theme = gtk_icon_theme_get_default();
+  struct Launcher *launcherList = NULL;
 
   if (NULL == (directory = opendir(applications_url))) {
     printf("Failed to open directory.\n");
@@ -176,24 +220,20 @@ int main(int argc, char *argv[]) {
   const int colwidth = 96;
   const int rowstart = 32;
   const int rowheight = 112;
+  
   for (int i = 0; i < 128; i++) {
     if (strlen(desktop_files[i].name) != 0 &&
         desktop_files[i].no_display == false &&
         strlen(desktop_files[i].icon) != 0) {
-      // printf("Name: %s\n", desktop_files[i].name);
-      // printf("Icon: %s\n", desktop_files[i].icon);
-      // printf("Exec: %s\n", desktop_files[i].exec);
-      // printf("Terminal: %s\n", desktop_files[i].terminal ? "true" : "false");
-      // printf("NoDisplay: %s\n", desktop_files[i].no_display ? "true" :
-      // "false");
-      desktop_files[i].icon_texture =
+
+      SDL_Texture *icon_texture =
           IMG_LoadTexture(renderer, desktop_files[i].icon);
-      desktop_files[i].icon_rect = (SDL_Rect){
-          colstart + col * colwidth, rowstart + row * rowheight, 64, 64};
+      SDL_Rect icon_rect = (SDL_Rect){colstart + col * colwidth,
+                                      rowstart + row * rowheight, 64, 64};
 
       SDL_Surface *label_surface =
           TTF_RenderUTF8_Blended(Inter, desktop_files[i].name, WHITE);
-      desktop_files[i].label_texture =
+      SDL_Texture *label_texture =
           SDL_CreateTextureFromSurface(renderer, label_surface);
       if (label_surface) {
         SDL_FreeSurface(label_surface);
@@ -201,9 +241,14 @@ int main(int argc, char *argv[]) {
 
       int text_w, text_h;
       TTF_SizeText(Inter, desktop_files[i].name, &text_w, &text_h);
-      desktop_files[i].label_rect =
+      SDL_Rect label_rect =
           (SDL_Rect){colstart + col * colwidth, rowstart + row * rowheight + 72,
                      text_w, text_h};
+
+      launcherList =
+          addLauncher(launcherList, desktop_files[i].exec, icon_texture,
+                      icon_rect, label_texture, label_rect);
+
       if (col == 5) {
         col = 0;
         row++;
@@ -216,7 +261,7 @@ int main(int argc, char *argv[]) {
   // Begin main loop
   SDL_bool done = SDL_FALSE;
   bool found;
-  int index;
+  // int index;
   while (!done) {
     SDL_Event event;
     if (SDL_WaitEvent(&event)) {
@@ -247,8 +292,24 @@ int main(int argc, char *argv[]) {
         break;
       case SDL_MOUSEBUTTONDOWN:
         SDL_FlushEvent(SDL_MOUSEBUTTONDOWN);
-        index = 0;
+        // index = 0;
         found = false;
+        Launcher *launcherHead = launcherList;
+        while (found == false && launcherHead != NULL) {
+          if (mouse_x > launcherHead->icon_rect.x &&
+              mouse_x < launcherHead->icon_rect.x + launcherHead->icon_rect.w &&
+              mouse_y > launcherHead->icon_rect.y &&
+              mouse_y < launcherHead->icon_rect.y + launcherHead->icon_rect.h) {
+            found = true;
+            // Launch new process
+            if (fork() == 0) {
+              system(launcherHead->exec);
+              return 1;
+            }
+          }
+          launcherHead = launcherHead->next;
+        }
+        /*
         while (found == false && index < 128) {
           printf("index: %d\n", index);
           printf("found: %s\n", found ? "true" : "false");
@@ -274,7 +335,7 @@ int main(int argc, char *argv[]) {
             }
           }
           index++;
-        }
+        }*/
         break;
       case SDL_QUIT:
         done = SDL_TRUE;
@@ -290,30 +351,27 @@ int main(int argc, char *argv[]) {
     }
 
     // Draw icons and labels to screen
-    for (int i = 0; i < 128; i++) {
-      if (strlen(desktop_files[i].name) != 0 &&
-          desktop_files[i].no_display != true &&
-          strlen(desktop_files[i].icon) != 0) {
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
-        SDL_RenderCopy(renderer, desktop_files[i].icon_texture, NULL,
-                       &desktop_files[i].icon_rect);
-        SDL_RenderCopy(renderer, desktop_files[i].label_texture, NULL,
-                       &desktop_files[i].label_rect);
+    Launcher *current = launcherList;
+    while (current != NULL) {
+      SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+      SDL_RenderCopy(renderer, current->icon_texture, NULL,
+                     &current->icon_rect);
+      SDL_RenderCopy(renderer, current->label_texture, NULL,
+                     &current->label_rect);
 
-        int ypos = desktop_files[i].label_rect.y;
-        int xpos = desktop_files[i].label_rect.x + 64;
-        // Gradient mask for label
-        for (int j = 0; j < 16; j++) {
-          SDL_SetRenderDrawColor(renderer, 36, 36, 36, j * 16);
-          SDL_RenderDrawLine(renderer, xpos + j, ypos, xpos + j, ypos + 32);
-        }
-        SDL_SetRenderDrawColor(renderer, 36, 36, 36, SDL_ALPHA_OPAQUE);
-        SDL_Rect maskrect = {
-            desktop_files[i].label_rect.x + 80, desktop_files[i].label_rect.y,
-            desktop_files[i].label_rect.w, desktop_files[i].label_rect.h};
-        SDL_RenderFillRect(renderer, &maskrect);
+      int xpos = current->label_rect.x + 64;
+      int ypos = current->label_rect.y;
+      // Gradient mask for label
+      for (int j = 0; j < 16; j++) {
+        SDL_SetRenderDrawColor(renderer, 36, 36, 36, j * 16);
+        SDL_RenderDrawLine(renderer, xpos + j, ypos, xpos + j, ypos + 32);
       }
-    };
+      SDL_SetRenderDrawColor(renderer, 36, 36, 36, SDL_ALPHA_OPAQUE);
+      SDL_Rect maskrect = {current->label_rect.x + 80, current->label_rect.y,
+                           current->label_rect.w, current->label_rect.h};
+      SDL_RenderFillRect(renderer, &maskrect);
+      current = current->next;
+    }
 
     // Draw back buffer to screen
     SDL_RenderPresent(renderer);
@@ -328,6 +386,8 @@ int main(int argc, char *argv[]) {
   if (window) {
     SDL_DestroyWindow(window);
   }
+
+  freeLaunchers(launcherList);
 
   TTF_CloseFont(Inter);
   TTF_Quit();
