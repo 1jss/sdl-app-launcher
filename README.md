@@ -1,4 +1,4 @@
-# This is my notes from learning C and SDL
+# This is my study project for learning C and SDL
 
 Formatting code:
 `clang-format -i main.c`
